@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::rc::Rc;
 
 use arrow::record_batch::RecordBatch;
 
@@ -7,6 +7,7 @@ use crate::{
     logical_plan::{self, DataFrame},
 };
 
+#[derive(Default)]
 pub struct ExecutionContext {}
 
 impl ExecutionContext {
@@ -22,9 +23,9 @@ impl ExecutionContext {
             .map(|c| c.name())
             .cloned()
             .collect::<Vec<_>>();
-        DataFrame(Arc::new(logical_plan::Scan::new(
+        DataFrame(Rc::new(logical_plan::Scan::new(
             "".to_owned(),
-            Arc::new(MemoryDataSource::new(batch)),
+            Rc::new(MemoryDataSource::new(batch)),
             projection,
         )))
     }

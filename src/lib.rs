@@ -1,5 +1,3 @@
-use arrow::datatypes::Schema;
-
 mod util;
 pub use util::*;
 

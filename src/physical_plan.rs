@@ -1,9 +1,4 @@
-use std::{
-    borrow::BorrowMut,
-    collections::{hash_map::Entry, HashMap, VecDeque},
-    fmt::{write, Display},
-    sync::{Arc, Mutex},
-};
+use std::{cell::RefCell, collections::HashMap, fmt::Display, rc::Rc, sync::Arc};
 
 use arrow::{
     array::{
@@ -34,25 +29,25 @@ impl ArrayOrDatum {
 pub trait PhysicalPlan: Display {
     fn schema(&self) -> SchemaRef;
     fn execute(&self) -> Box<dyn Iterator<Item = RecordBatch> + '_>;
-    fn children(&self) -> Vec<Arc<dyn PhysicalPlan>>;
+    fn children(&self) -> Vec<Rc<dyn PhysicalPlan>>;
 }
 
 pub trait PhysicalExpr: Display {
     fn evaluate(&self, input: &RecordBatch) -> ArrayOrDatum;
 }
 
-pub fn pretty_print_plan(plan: Arc<dyn PhysicalPlan>) -> String {
+pub fn pretty_print_plan(plan: Rc<dyn PhysicalPlan>) -> String {
     _pretty_print_plan(plan, 0)
 }
-fn _pretty_print_plan(plan: Arc<dyn PhysicalPlan>, indent: u32) -> String {
+fn _pretty_print_plan(plan: Rc<dyn PhysicalPlan>, indent: u32) -> String {
     let mut s = String::new();
 
     for _ in 0..indent {
-        s.push_str("\t");
+        s.push('\t');
     }
 
     s.push_str(&plan.to_string());
-    s.push_str("\n");
+    s.push('\n');
 
     for child in plan.children() {
         s.push_str(&_pretty_print_plan(child, indent + 1));
@@ -105,8 +100,8 @@ impl PhysicalExpr for LiteralString {
 }
 
 pub struct Eq {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Eq {
@@ -127,8 +122,8 @@ impl PhysicalExpr for Eq {
 }
 
 pub struct Ne {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Ne {
@@ -149,8 +144,8 @@ impl PhysicalExpr for Ne {
 }
 
 pub struct Gt {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Gt {
@@ -171,8 +166,8 @@ impl PhysicalExpr for Gt {
 }
 
 pub struct Gte {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Gte {
@@ -193,8 +188,8 @@ impl PhysicalExpr for Gte {
 }
 
 pub struct Lt {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Lt {
@@ -215,8 +210,8 @@ impl PhysicalExpr for Lt {
 }
 
 pub struct Lte {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Lte {
@@ -237,8 +232,8 @@ impl PhysicalExpr for Lte {
 }
 
 pub struct And {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for And {
@@ -272,8 +267,8 @@ impl PhysicalExpr for And {
 }
 
 pub struct Or {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Or {
@@ -307,8 +302,8 @@ impl PhysicalExpr for Or {
 }
 
 pub struct Add {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Add {
@@ -329,8 +324,8 @@ impl PhysicalExpr for Add {
 }
 
 pub struct Sub {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Sub {
@@ -351,8 +346,8 @@ impl PhysicalExpr for Sub {
 }
 
 pub struct Mul {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Mul {
@@ -373,8 +368,8 @@ impl PhysicalExpr for Mul {
 }
 
 pub struct Div {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Div {
@@ -395,8 +390,8 @@ impl PhysicalExpr for Div {
 }
 
 pub struct Mod {
-    pub l: Arc<dyn PhysicalExpr>,
-    pub r: Arc<dyn PhysicalExpr>,
+    pub l: Rc<dyn PhysicalExpr>,
+    pub r: Rc<dyn PhysicalExpr>,
 }
 
 impl Display for Mod {
@@ -417,7 +412,7 @@ impl PhysicalExpr for Mod {
 }
 
 pub struct ScanExec {
-    pub ds: Arc<dyn DataSource>,
+    pub ds: Rc<dyn DataSource>,
     pub projection: Vec<String>,
 }
 
@@ -435,7 +430,7 @@ impl PhysicalPlan for ScanExec {
         self.ds.scan(&self.projection)
     }
 
-    fn children(&self) -> Vec<Arc<dyn PhysicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn PhysicalPlan>> {
         vec![]
     }
 }
@@ -452,8 +447,8 @@ impl Display for ScanExec {
 }
 
 pub struct SelectionExec {
-    pub input: Arc<dyn PhysicalPlan>,
-    pub expr: Arc<dyn PhysicalExpr>,
+    pub input: Rc<dyn PhysicalPlan>,
+    pub expr: Rc<dyn PhysicalExpr>,
 }
 
 impl PhysicalPlan for SelectionExec {
@@ -471,7 +466,7 @@ impl PhysicalPlan for SelectionExec {
                     let new_cols = r
                         .columns()
                         .iter()
-                        .map(|col| kernels::filter::filter(col, &bitvector).unwrap())
+                        .map(|col| kernels::filter::filter(col, bitvector).unwrap())
                         .collect::<Vec<_>>();
                     RecordBatch::try_new(self.schema(), new_cols).unwrap()
                 }
@@ -480,7 +475,7 @@ impl PhysicalPlan for SelectionExec {
         }))
     }
 
-    fn children(&self) -> Vec<Arc<dyn PhysicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn PhysicalPlan>> {
         vec![self.input.clone()]
     }
 }
@@ -492,8 +487,8 @@ impl Display for SelectionExec {
 }
 
 pub struct ProjectionExec {
-    pub input: Arc<dyn PhysicalPlan>,
-    pub expr: Vec<Arc<dyn PhysicalExpr>>,
+    pub input: Rc<dyn PhysicalPlan>,
+    pub expr: Vec<Rc<dyn PhysicalExpr>>,
     pub schema: SchemaRef,
 }
 
@@ -517,7 +512,7 @@ impl PhysicalPlan for ProjectionExec {
         }))
     }
 
-    fn children(&self) -> Vec<Arc<dyn PhysicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn PhysicalPlan>> {
         vec![self.input.clone()]
     }
 }
@@ -575,11 +570,11 @@ impl Accumulator for MinAccumulator {
 }
 
 pub trait AggregateExpr: Display {
-    fn input_expr(&self) -> Arc<dyn PhysicalExpr>;
-    fn create_accumulator(&self) -> Arc<Mutex<dyn Accumulator>>;
+    fn input_expr(&self) -> Rc<dyn PhysicalExpr>;
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>>;
 }
 
-pub struct Min(pub Arc<dyn PhysicalExpr>);
+pub struct Min(pub Rc<dyn PhysicalExpr>);
 
 impl Display for Min {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
@@ -588,19 +583,19 @@ impl Display for Min {
 }
 
 impl AggregateExpr for Min {
-    fn input_expr(&self) -> Arc<dyn PhysicalExpr> {
+    fn input_expr(&self) -> Rc<dyn PhysicalExpr> {
         self.0.clone()
     }
 
-    fn create_accumulator(&self) -> Arc<Mutex<dyn Accumulator>> {
-        Arc::new(Mutex::new(MinAccumulator(None)))
+    fn create_accumulator(&self) -> Rc<RefCell<dyn Accumulator>> {
+        Rc::new(RefCell::new(MinAccumulator(None)))
     }
 }
 
 pub struct HashAggregateExec {
-    pub input: Arc<dyn PhysicalPlan>,
-    pub group_expr: Vec<Arc<dyn PhysicalExpr>>,
-    pub agg_expr: Vec<Arc<dyn AggregateExpr>>,
+    pub input: Rc<dyn PhysicalPlan>,
+    pub group_expr: Vec<Rc<dyn PhysicalExpr>>,
+    pub agg_expr: Vec<Rc<dyn AggregateExpr>>,
     pub schema: SchemaRef,
 }
 
@@ -629,7 +624,7 @@ impl PhysicalPlan for HashAggregateExec {
     }
 
     fn execute(&self) -> Box<dyn Iterator<Item = RecordBatch> + '_> {
-        let mut map: HashMap<Vec<AggValue>, Vec<Arc<Mutex<dyn Accumulator>>>> = HashMap::new();
+        let mut map: HashMap<Vec<AggValue>, Vec<Rc<RefCell<dyn Accumulator>>>> = HashMap::new();
 
         self.input.execute().for_each(|r| {
             let group_keys = self
@@ -668,14 +663,15 @@ impl PhysicalPlan for HashAggregateExec {
                     .map(|e| e.create_accumulator())
                     .collect::<Vec<_>>();
                 let entry = map.entry(row_key).or_insert(accumulators);
-
                 for (j, arr) in aggr_input_values.iter().enumerate() {
-                    let mut g = entry[j].lock().unwrap();
+                    let acc = &*entry[j];
                     if let Some(intarr) = arr.as_any().downcast_ref::<Int64Array>() {
-                        g.accumulate(AggValue::Int64(intarr.value(i)));
+                        acc.borrow_mut()
+                            .accumulate(AggValue::Int64(intarr.value(i)));
                     } else {
                         let strarr = arr.as_any().downcast_ref::<StringArray>().unwrap();
-                        g.accumulate(AggValue::String(strarr.value(i).to_owned()));
+                        acc.borrow_mut()
+                            .accumulate(AggValue::String(strarr.value(i).to_owned()));
                     }
                 }
             }
@@ -717,7 +713,7 @@ impl PhysicalPlan for HashAggregateExec {
             }
 
             for acc in v.iter() {
-                match acc.lock().unwrap().final_value() {
+                match acc.borrow().final_value() {
                     AggValue::Int64(n) => {
                         let builder = builders[index]
                             .as_any_mut()
@@ -742,7 +738,7 @@ impl PhysicalPlan for HashAggregateExec {
         Box::new(vec![batch].into_iter())
     }
 
-    fn children(&self) -> Vec<Arc<dyn PhysicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn PhysicalPlan>> {
         vec![self.input.clone()]
     }
 }

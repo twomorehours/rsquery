@@ -1,9 +1,6 @@
 use std::sync::Arc;
 
-use arrow::{
-    datatypes::{Schema, SchemaRef},
-    record_batch::RecordBatch,
-};
+use arrow::{datatypes::SchemaRef, record_batch::RecordBatch};
 
 use crate::schema_select;
 
@@ -44,9 +41,11 @@ impl DataSource for MemoryDataSource {
 
 #[cfg(test)]
 mod tests {
+    use std::sync::Arc;
+
     use arrow::{
-        array::{Int32Array, Int64Array, StringArray},
-        datatypes::{DataType, Field},
+        array::{Int64Array, StringArray},
+        datatypes::{DataType, Field, Schema},
     };
 
     use super::*;

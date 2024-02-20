@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{rc::Rc, sync::Arc};
 
 use arrow::{
     array::{Int64Array, StringArray},
@@ -12,35 +12,35 @@ fn main() {
     // select id,name from users where name == "yuhao" or id > 1 limit 10;
     let ctx = ExecutionContext::new();
     let or = logical_plan::Or::new(
-        Arc::new(logical_plan::Eq::new(
-            Arc::new(logical_plan::col("name".to_string())),
-            Arc::new(logical_plan::string_lit("yuhao".to_string())),
+        Rc::new(logical_plan::Eq::new(
+            Rc::new(logical_plan::col("name".to_string())),
+            Rc::new(logical_plan::string_lit("yuhao".to_string())),
         )),
-        Arc::new(logical_plan::Gt::new(
-            Arc::new(logical_plan::Add::new(
-                Arc::new(logical_plan::col("id".to_string())),
-                Arc::new(logical_plan::long_lit(1)),
+        Rc::new(logical_plan::Gt::new(
+            Rc::new(logical_plan::Add::new(
+                Rc::new(logical_plan::col("id".to_string())),
+                Rc::new(logical_plan::long_lit(1)),
             )),
-            Arc::new(logical_plan::long_lit(3)),
+            Rc::new(logical_plan::long_lit(3)),
         )),
     );
     let df = ctx
         .memory(create_record_batch())
-        .filter(Arc::new(or))
+        .filter(Rc::new(or))
         .aggregate(
-            vec![Arc::new(logical_plan::Column {
+            vec![Rc::new(logical_plan::Column {
                 name: "name".to_owned(),
             })],
-            vec![Arc::new(logical_plan::Min {
-                expr: Arc::new(logical_plan::Column {
+            vec![Rc::new(logical_plan::Min {
+                expr: Rc::new(logical_plan::Column {
                     name: "id".to_owned(),
                 }),
                 name: "min_id".to_string(),
             })],
         )
         .project(vec![
-            Arc::new(logical_plan::col("name".to_owned())),
-            Arc::new(logical_plan::col("min_id".to_owned())),
+            Rc::new(logical_plan::col("name".to_owned())),
+            Rc::new(logical_plan::col("min_id".to_owned())),
         ]);
 
     let pp = create_physical_plan(df.logic_plan());

@@ -1,24 +1,17 @@
-use std::{
-    any::Any,
-    fmt::{write, Display},
-    sync::Arc,
-};
+use std::{any::Any, fmt::Display, rc::Rc, sync::Arc};
 
 use arrow::datatypes::{DataType, Field, Schema, SchemaRef};
 
-use crate::{
-    data_source::{self, DataSource},
-    schema_select,
-};
+use crate::{data_source::DataSource, schema_select};
 
 pub trait LogicalPlan: Display {
     fn schema(&self) -> SchemaRef;
-    fn children(&self) -> Vec<Arc<dyn LogicalPlan>>;
+    fn children(&self) -> Vec<Rc<dyn LogicalPlan>>;
     fn as_any(&self) -> &dyn Any;
 }
 
 pub trait LogicalExpr: Display {
-    fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field;
+    fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field;
     fn as_any(&self) -> &dyn Any;
 }
 
@@ -31,7 +24,7 @@ pub fn col(name: String) -> Column {
 }
 
 impl LogicalExpr for Column {
-    fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field {
         input
             .schema()
             .all_fields()
@@ -59,7 +52,7 @@ pub fn string_lit(str: String) -> LiteralString {
 }
 
 impl LogicalExpr for LiteralString {
-    fn to_field(&self, _: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, _: Rc<dyn LogicalPlan>) -> Field {
         Field::new(self.0.clone(), DataType::Utf8, false)
     }
     fn as_any(&self) -> &dyn Any {
@@ -86,7 +79,7 @@ pub fn long_lit(n: i64) -> LiteralLong {
 }
 
 impl LogicalExpr for LiteralLong {
-    fn to_field(&self, _: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, _: Rc<dyn LogicalPlan>) -> Field {
         Field::new(self.0.to_string(), DataType::Int64, false)
     }
     fn as_any(&self) -> &dyn Any {
@@ -107,8 +100,8 @@ pub struct BooleanBinaryExpr {
 pub struct BinaryExpr {
     pub name: String,
     pub op: String,
-    pub l: Arc<dyn LogicalExpr>,
-    pub r: Arc<dyn LogicalExpr>,
+    pub l: Rc<dyn LogicalExpr>,
+    pub r: Rc<dyn LogicalExpr>,
 }
 
 impl Display for BinaryExpr {
@@ -124,7 +117,7 @@ impl Display for BooleanBinaryExpr {
 }
 
 impl LogicalExpr for BooleanBinaryExpr {
-    fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, _input: Rc<dyn LogicalPlan>) -> Field {
         Field::new(self.base.name.clone(), DataType::Boolean, false)
     }
     fn as_any(&self) -> &dyn Any {
@@ -139,7 +132,7 @@ macro_rules! create_boolean_binary_expr {
         }
 
         impl $struct_name {
-            pub fn new(l: Arc<dyn LogicalExpr>, r: Arc<dyn LogicalExpr>) -> Self {
+            pub fn new(l: Rc<dyn LogicalExpr>, r: Rc<dyn LogicalExpr>) -> Self {
                 Self {
                     base: BooleanBinaryExpr {
                         base: BinaryExpr {
@@ -160,7 +153,7 @@ macro_rules! create_boolean_binary_expr {
         }
 
         impl LogicalExpr for $struct_name {
-            fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+            fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field {
                 self.base.to_field(input)
             }
             fn as_any(&self) -> &dyn Any {
@@ -190,7 +183,7 @@ impl Display for MathExpr {
 }
 
 impl LogicalExpr for MathExpr {
-    fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field {
         self.base.l.to_field(input)
     }
     fn as_any(&self) -> &dyn Any {
@@ -205,7 +198,7 @@ macro_rules! create_math_binary_expr {
         }
 
         impl $struct_name {
-            pub fn new(l: Arc<dyn LogicalExpr>, r: Arc<dyn LogicalExpr>) -> Self {
+            pub fn new(l: Rc<dyn LogicalExpr>, r: Rc<dyn LogicalExpr>) -> Self {
                 Self {
                     base: MathExpr {
                         base: BinaryExpr {
@@ -226,7 +219,7 @@ macro_rules! create_math_binary_expr {
         }
 
         impl LogicalExpr for $struct_name {
-            fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+            fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field {
                 self.base.to_field(input)
             }
             fn as_any(&self) -> &dyn Any {
@@ -242,18 +235,18 @@ create_math_binary_expr!(Mul, "mul", "*");
 create_math_binary_expr!(Div, "div", "/");
 create_math_binary_expr!(Mod, "mod", "%");
 
-pub fn pretty_print_plan(plan: Arc<dyn LogicalPlan>) -> String {
+pub fn pretty_print_plan(plan: Rc<dyn LogicalPlan>) -> String {
     _pretty_print_plan(plan, 0)
 }
-fn _pretty_print_plan(plan: Arc<dyn LogicalPlan>, indent: u32) -> String {
+fn _pretty_print_plan(plan: Rc<dyn LogicalPlan>, indent: u32) -> String {
     let mut s = String::new();
 
     for _ in 0..indent {
-        s.push_str("\t");
+        s.push('\t');
     }
 
     s.push_str(&plan.to_string());
-    s.push_str("\n");
+    s.push('\n');
 
     for child in plan.children() {
         s.push_str(&_pretty_print_plan(child, indent + 1));
@@ -263,12 +256,12 @@ fn _pretty_print_plan(plan: Arc<dyn LogicalPlan>, indent: u32) -> String {
 
 pub struct Scan {
     pub path: String,
-    pub data_source: Arc<dyn DataSource>,
+    pub data_source: Rc<dyn DataSource>,
     pub projection: Vec<String>,
 }
 
 impl Scan {
-    pub fn new(path: String, data_source: Arc<dyn DataSource>, projection: Vec<String>) -> Scan {
+    pub fn new(path: String, data_source: Rc<dyn DataSource>, projection: Vec<String>) -> Scan {
         Self {
             path,
             data_source,
@@ -286,7 +279,7 @@ impl LogicalPlan for Scan {
         }
     }
 
-    fn children(&self) -> Vec<Arc<dyn LogicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn LogicalPlan>> {
         vec![]
     }
 
@@ -311,12 +304,12 @@ impl Display for Scan {
 }
 
 pub struct Projection {
-    pub input: Arc<dyn LogicalPlan>,
-    pub expr: Vec<Arc<dyn LogicalExpr>>,
+    pub input: Rc<dyn LogicalPlan>,
+    pub expr: Vec<Rc<dyn LogicalExpr>>,
 }
 
 impl Projection {
-    pub fn new(input: Arc<dyn LogicalPlan>, expr: Vec<Arc<dyn LogicalExpr>>) -> Self {
+    pub fn new(input: Rc<dyn LogicalPlan>, expr: Vec<Rc<dyn LogicalExpr>>) -> Self {
         Self { input, expr }
     }
 }
@@ -331,7 +324,7 @@ impl LogicalPlan for Projection {
         ))
     }
 
-    fn children(&self) -> Vec<Arc<dyn LogicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn LogicalPlan>> {
         vec![self.input.clone()]
     }
     fn as_any(&self) -> &dyn Any {
@@ -354,12 +347,12 @@ impl Display for Projection {
 }
 
 pub struct Selection {
-    pub input: Arc<dyn LogicalPlan>,
-    pub expr: Arc<dyn LogicalExpr>,
+    pub input: Rc<dyn LogicalPlan>,
+    pub expr: Rc<dyn LogicalExpr>,
 }
 
 impl Selection {
-    pub fn new(input: Arc<dyn LogicalPlan>, expr: Arc<dyn LogicalExpr>) -> Self {
+    pub fn new(input: Rc<dyn LogicalPlan>, expr: Rc<dyn LogicalExpr>) -> Self {
         Self { input, expr }
     }
 }
@@ -369,7 +362,7 @@ impl LogicalPlan for Selection {
         self.input.schema()
     }
 
-    fn children(&self) -> Vec<Arc<dyn LogicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn LogicalPlan>> {
         vec![self.input.clone()]
     }
 
@@ -386,7 +379,7 @@ impl Display for Selection {
 
 pub struct Min {
     pub name: String,
-    pub expr: Arc<dyn LogicalExpr>,
+    pub expr: Rc<dyn LogicalExpr>,
 }
 
 impl Display for Min {
@@ -396,7 +389,7 @@ impl Display for Min {
 }
 
 impl LogicalExpr for Min {
-    fn to_field(&self, input: Arc<dyn LogicalPlan>) -> Field {
+    fn to_field(&self, input: Rc<dyn LogicalPlan>) -> Field {
         let f = self.expr.to_field(input);
         f.with_name(self.name.clone())
     }
@@ -407,9 +400,9 @@ impl LogicalExpr for Min {
 }
 
 pub struct Aggregate {
-    pub input: Arc<dyn LogicalPlan>,
-    pub group_expr: Vec<Arc<dyn LogicalExpr>>,
-    pub agg_expr: Vec<Arc<dyn LogicalExpr>>,
+    pub input: Rc<dyn LogicalPlan>,
+    pub group_expr: Vec<Rc<dyn LogicalExpr>>,
+    pub agg_expr: Vec<Rc<dyn LogicalExpr>>,
 }
 
 impl Display for Aggregate {
@@ -445,7 +438,7 @@ impl LogicalPlan for Aggregate {
         Arc::new(Schema::new(fields))
     }
 
-    fn children(&self) -> Vec<Arc<dyn LogicalPlan>> {
+    fn children(&self) -> Vec<Rc<dyn LogicalPlan>> {
         vec![self.input.clone()]
     }
 
@@ -454,23 +447,23 @@ impl LogicalPlan for Aggregate {
     }
 }
 
-pub struct DataFrame(pub Arc<dyn LogicalPlan>);
+pub struct DataFrame(pub Rc<dyn LogicalPlan>);
 
 impl DataFrame {
-    pub fn project(self, expr: Vec<Arc<dyn LogicalExpr>>) -> Self {
-        Self(Arc::new(Projection::new(self.0, expr)))
+    pub fn project(self, expr: Vec<Rc<dyn LogicalExpr>>) -> Self {
+        Self(Rc::new(Projection::new(self.0, expr)))
     }
 
-    pub fn filter(self, expr: Arc<dyn LogicalExpr>) -> Self {
-        Self(Arc::new(Selection::new(self.0, expr)))
+    pub fn filter(self, expr: Rc<dyn LogicalExpr>) -> Self {
+        Self(Rc::new(Selection::new(self.0, expr)))
     }
 
     pub fn aggregate(
         self,
-        group_expr: Vec<Arc<dyn LogicalExpr>>,
-        agg_expr: Vec<Arc<dyn LogicalExpr>>,
+        group_expr: Vec<Rc<dyn LogicalExpr>>,
+        agg_expr: Vec<Rc<dyn LogicalExpr>>,
     ) -> Self {
-        Self(Arc::new(Aggregate {
+        Self(Rc::new(Aggregate {
             input: self.0,
             agg_expr,
             group_expr,
@@ -481,7 +474,7 @@ impl DataFrame {
         self.0.schema()
     }
 
-    pub fn logic_plan(&self) -> Arc<dyn LogicalPlan> {
+    pub fn logic_plan(&self) -> Rc<dyn LogicalPlan> {
         self.0.clone()
     }
 }
