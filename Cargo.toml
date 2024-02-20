@@ -7,4 +7,4 @@ edition = "2021"
 
 [dependencies]
 arrow = "50.0.0"
-datafusion = "35.0.0"
+datafusion = "35.0.0" # only for pretty print RecordBattch
