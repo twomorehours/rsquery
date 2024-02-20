@@ -9,7 +9,7 @@ use arrow::{
 use rsquery::{execution::ExecutionContext, logical_plan, query_planner::create_physical_plan};
 
 fn main() {
-    // select id,name from users where name == "yuhao" or id > 1 limit 10;
+    // select name, MIN(id) as min_id from users where name = 'yuhao' or id+1 > 3;
     let ctx = ExecutionContext::new();
     let or = logical_plan::Or::new(
         Rc::new(logical_plan::Eq::new(
